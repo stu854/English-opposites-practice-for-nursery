@@ -1,142 +1,105 @@
-/* ============================================================
-   ANIMAL OPPOSITES — Service Worker
-   Offline support + caching
-   ============================================================ */
+const CACHE_NAME = "animal-opposites-v2";
 
-const CACHE_NAME = "animal-opposites-v1";
-
-const APP_FILES = [
+const APP_SHELL = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
-  "./manifest.json"
+  "./manifest.json",
+  "./icons/icon-192.png",
+  "./icons/icon-512.png"
 ];
 
-
-/* ============================================================
-   INSTALL
-   ============================================================ */
-
 self.addEventListener("install", event => {
-
   event.waitUntil(
-
-    caches
-      .open(CACHE_NAME)
-      .then(cache => {
-
-        return cache.addAll(APP_FILES);
-
-      })
-
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(APP_SHELL))
   );
-
-  /*
-    Activate the new service worker immediately.
-  */
 
   self.skipWaiting();
 });
 
-
-/* ============================================================
-   ACTIVATE
-   ============================================================ */
-
 self.addEventListener("activate", event => {
-
   event.waitUntil(
-
-    caches.keys().then(cacheNames => {
-
-      return Promise.all(
-
-        cacheNames
-          .filter(name => name !== CACHE_NAME)
-          .map(name => caches.delete(name))
-
-      );
-
-    })
-
+    caches.keys().then(keys =>
+      Promise.all(
+        keys
+          .filter(key => key !== CACHE_NAME)
+          .map(key => caches.delete(key))
+      )
+    )
   );
 
   self.clients.claim();
 });
 
-
-/* ============================================================
-   FETCH
-   ============================================================ */
-
 self.addEventListener("fetch", event => {
-
-  /*
-    Only handle GET requests.
-  */
 
   if (event.request.method !== "GET") {
     return;
   }
 
+  /*
+   * HTML pages:
+   * Try the network first so updates appear quickly.
+   * Fall back to the cached page when offline.
+   */
+  if (event.request.mode === "navigate") {
+
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+
+          const copy = response.clone();
+
+          caches.open(CACHE_NAME)
+            .then(cache =>
+              cache.put(event.request, copy)
+            );
+
+          return response;
+        })
+        .catch(() =>
+          caches.match("./index.html")
+        )
+    );
+
+    return;
+  }
+
+  /*
+   * CSS, JS, images and other assets:
+   * Use the cached version first.
+   */
   event.respondWith(
 
     caches.match(event.request)
-      .then(cachedResponse => {
+      .then(cached => {
 
-        /*
-          Use the cached version when available.
-        */
-
-        if (cachedResponse) {
-          return cachedResponse;
+        if (cached) {
+          return cached;
         }
 
-        /*
-          Otherwise try the network.
-        */
-
         return fetch(event.request)
-          .then(networkResponse => {
-
-            /*
-              Save a copy for future offline use.
-            */
+          .then(response => {
 
             if (
-              networkResponse &&
-              networkResponse.status === 200 &&
-              networkResponse.type === "basic"
+              response.ok &&
+              response.type === "basic"
             ) {
 
-              const responseCopy =
-                networkResponse.clone();
+              const copy = response.clone();
 
               caches.open(CACHE_NAME)
-                .then(cache => {
-
+                .then(cache =>
                   cache.put(
                     event.request,
-                    responseCopy
-                  );
-
-                });
+                    copy
+                  )
+                );
             }
 
-            return networkResponse;
-          })
-          .catch(() => {
-
-            /*
-              If the network is unavailable,
-              fall back to index.html.
-            */
-
-            return caches.match(
-              "./index.html"
-            );
-
+            return response;
           });
 
       })
