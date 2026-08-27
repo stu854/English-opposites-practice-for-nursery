@@ -1672,11 +1672,6 @@ $("saveProfile").addEventListener(
   saveProfile
 );
 
-$("backHome").addEventListener(
-  "click",
-  showHome
-);
-
 $("parentHome").addEventListener(
   "click",
   showHome
