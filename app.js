@@ -1,93 +1,13 @@
-```javascript
 /* ============================================================
-   ANIMAL OPPOSITES — app.js
+   ANIMAL OPPOSITES — UPDATED APP LOGIC
    ============================================================ */
-
-const LEVELS = [
-  {
-    id: 1,
-    title: "Level 1 — Little Learner",
-    description: "Easy opposites you can see and feel.",
-    pairs: [
-      ["big", "small", "🐘", "🐭", "Size"],
-      ["hot", "cold", "☀️", "🧊", "Temperature"],
-      ["fast", "slow", "🐆", "🐢", "Speed"],
-      ["happy", "sad", "😊", "😢", "Feelings"],
-      ["up", "down", "🎈", "🪨", "Position"],
-      ["in", "out", "🏠", "🌳", "Position"],
-      ["open", "closed", "🚪", "🔒", "Everyday"],
-      ["on", "off", "💡", "🌑", "Everyday"],
-      ["day", "night", "☀️", "🌙", "Time"],
-      ["loud", "quiet", "🥁", "🤫", "Sound"]
-    ]
-  },
-
-  {
-    id: 2,
-    title: "Level 2 — Animal Explorer",
-    description: "Everyday opposites.",
-    pairs: [
-      ["tall", "short", "🦒", "🐛", "Size"],
-      ["light", "dark", "☀️", "🌑", "Light"],
-      ["old", "young", "👴", "👶", "Age"],
-      ["new", "old", "🆕", "🧸", "Age"],
-      ["good", "bad", "👍", "👎", "Choices"],
-      ["clean", "dirty", "🧼", "🟤", "Everyday"],
-      ["full", "empty", "🥛", "🫗", "Everyday"],
-      ["wet", "dry", "💦", "☀️", "Everyday"],
-      ["hard", "soft", "🪨", "🧸", "Touch"],
-      ["heavy", "light", "🐘", "🪶", "Weight"],
-      ["near", "far", "🏠", "🌙", "Distance"],
-      ["high", "low", "✈️", "🐜", "Position"],
-      ["inside", "outside", "🏠", "🌳", "Position"],
-      ["front", "back", "🚗", "🚙", "Position"],
-      ["left", "right", "👈", "👉", "Direction"],
-      ["before", "after", "🌅", "🌙", "Time"],
-      ["first", "last", "🥇", "🏃", "Order"],
-      ["early", "late", "🌅", "🌙", "Time"],
-      ["awake", "asleep", "👀", "😴", "State"],
-      ["push", "pull", "🛒", "🚪", "Action"],
-      ["give", "take", "🎁", "🤲", "Action"],
-      ["come", "go", "🏠", "🚶", "Action"],
-      ["start", "stop", "🏃", "🛑", "Action"]
-    ]
-  },
-
-  {
-    id: 3,
-    title: "Level 3 — Super Explorer",
-    description: "Trickier words and ideas.",
-    pairs: [
-      ["laugh", "cry", "😂", "😭", "Feelings"],
-      ["love", "hate", "❤️", "😖", "Feelings"],
-      ["true", "false", "✅", "❌", "Ideas"],
-      ["same", "different", "👕", "👗", "Ideas"],
-      ["easy", "difficult", "🙂", "🧩", "Difficulty"],
-      ["kind", "mean", "❤️", "😠", "Choices"],
-      ["brave", "scared", "🦁", "😨", "Feelings"],
-      ["safe", "dangerous", "🪖", "🔥", "Safety"],
-      ["pretty", "ugly", "🌸", "🗑️", "Appearance"],
-      ["thick", "thin", "📚", "📄", "Size"],
-      ["wide", "narrow", "🛣️", "🚶", "Size"],
-      ["long", "short", "🦒", "🐛", "Size"],
-      ["deep", "shallow", "🌊", "🛁", "Depth"],
-      ["smooth", "rough", "🪞", "🪨", "Touch"],
-      ["sweet", "sour", "🍬", "🍋", "Taste"],
-      ["strong", "weak", "💪", "🐜", "Strength"],
-      ["many", "few", "🐟🐟🐟", "🐟", "Amount"],
-      ["more", "less", "🍪🍪🍪", "🍪", "Amount"],
-      ["all", "none", "👧👦👶", "⭕", "Amount"],
-      ["yes", "no", "👍", "👎", "Choices"]
-    ]
-  }
-];
 
 const AVATARS = [
   "🐼", "🐨", "🦊", "🐸",
   "🐯", "🐵", "🐰", "🐻"
 ];
 
-const STORAGE_KEY = "animalOpposites_v3";
+const STORAGE_KEY = "animalOpposites_v4";
 
 const PRAISE = [
   "Great job!",
@@ -105,6 +25,7 @@ let currentLevel = 1;
 
 let questions = [];
 let questionIndex = 0;
+
 let sessionScore = 0;
 let sessionTotal = 0;
 
@@ -114,11 +35,16 @@ let answered = false;
 let selectedAvatar = AVATARS[0];
 
 let pinBuffer = "";
+
 let speechTimer = null;
+let speechQueue = [];
+let speechQueueRunning = false;
+
+let toastTimer;
 
 
 /* ============================================================
-   DOM HELPERS
+   DOM
    ============================================================ */
 
 const $ = id => document.getElementById(id);
@@ -134,11 +60,13 @@ const screens = {
 
 
 /* ============================================================
-   STORAGE
+   DEFAULT DATA
    ============================================================ */
 
 function defaultData() {
+
   return {
+
     profiles: [],
 
     settings: {
@@ -151,48 +79,161 @@ function defaultData() {
   };
 }
 
-function loadData() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
 
-    if (!raw) {
+/* ============================================================
+   DATA MIGRATION
+   ============================================================ */
+
+function normalizeProfile(profile) {
+
+  const normalized = {
+    id: profile.id,
+    name: profile.name || "Player",
+    avatar: profile.avatar || "🐼",
+
+    stars: Number(profile.stars) || 0,
+
+    sessions: Number(profile.sessions) || 0,
+
+    /*
+      questions = completed questions.
+      attempts = all taps, including wrong tries.
+    */
+
+    questions: Number(profile.questions) || 0,
+    attempts: Number(profile.attempts) || 0,
+
+    correct: Number(profile.correct) || 0,
+
+    unlockedLevel:
+      Math.max(
+        1,
+        Number(profile.unlockedLevel) || 1
+      ),
+
+    weak:
+      profile.weak &&
+      typeof profile.weak === "object"
+        ? profile.weak
+        : {},
+
+    levelStats: {}
+  };
+
+  for (let i = 1; i <= LEVELS.length; i++) {
+
+    const oldStats =
+      profile.levelStats &&
+      profile.levelStats[i]
+        ? profile.levelStats[i]
+        : {};
+
+    normalized.levelStats[i] = {
+
+      played:
+        Number(oldStats.played) || 0,
+
+      correct:
+        Number(oldStats.correct) || 0,
+
+      attempts:
+        Number(oldStats.attempts) || 0
+    };
+  }
+
+  return normalized;
+}
+
+
+/* ============================================================
+   STORAGE
+   ============================================================ */
+
+function loadData() {
+
+  try {
+
+    const raw =
+      localStorage.getItem(STORAGE_KEY);
+
+    /*
+      Also look for the previous version.
+    */
+
+    const oldRaw =
+      raw ||
+      localStorage.getItem(
+        "animalOpposites_v3"
+      );
+
+    if (!oldRaw) {
+
       return defaultData();
     }
 
-    const parsed = JSON.parse(raw);
+    const parsed =
+      JSON.parse(oldRaw);
 
-    const defaults = defaultData();
+    const defaults =
+      defaultData();
 
     return {
+
       ...defaults,
+
       ...parsed,
 
+      profiles:
+        Array.isArray(parsed.profiles)
+          ? parsed.profiles.map(
+              normalizeProfile
+            )
+          : [],
+
       settings: {
+
         ...defaults.settings,
+
         ...(parsed.settings || {})
       }
     };
 
   } catch (error) {
-    console.warn("Could not load saved progress.", error);
+
+    console.warn(
+      "Could not load saved progress.",
+      error
+    );
+
     return defaultData();
   }
 }
 
+
 function saveData() {
+
   try {
+
     localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify(data)
     );
+
   } catch (error) {
-    console.warn("Could not save progress.", error);
+
+    console.warn(
+      "Could not save progress.",
+      error
+    );
   }
 }
 
+
 function getCurrentProfile() {
+
   return data.profiles.find(
-    p => p.id === currentProfileId
+    profile =>
+      profile.id === currentProfileId
   );
 }
 
@@ -202,90 +243,137 @@ function getCurrentProfile() {
    ============================================================ */
 
 function openCreate() {
+
   showScreen("create");
 
   $("childName").value = "";
 
-  selectedAvatar = AVATARS[0];
+  selectedAvatar =
+    AVATARS[0];
 
   renderAvatarPicker();
 }
 
+
 function renderAvatarPicker() {
-  const container = $("avatarPicker");
+
+  const container =
+    $("avatarPicker");
 
   container.innerHTML = "";
 
   AVATARS.forEach(avatar => {
 
-    const button = document.createElement("button");
+    const button =
+      document.createElement("button");
 
     button.className =
       "avatar-choice" +
-      (avatar === selectedAvatar ? " selected" : "");
+      (
+        avatar === selectedAvatar
+          ? " selected"
+          : ""
+      );
 
-    button.textContent = avatar;
+    button.type = "button";
 
-    button.addEventListener("click", () => {
-      selectedAvatar = avatar;
-      renderAvatarPicker();
-    });
+    button.textContent =
+      avatar;
 
-    container.appendChild(button);
+    button.addEventListener(
+      "click",
+      () => {
+
+        selectedAvatar =
+          avatar;
+
+        renderAvatarPicker();
+      }
+    );
+
+    container.appendChild(
+      button
+    );
   });
 }
 
+
 function saveProfile() {
-  const name = $("childName").value.trim();
+
+  const name =
+    $("childName").value.trim();
 
   if (!name) {
-    toast("Please choose a nickname.");
+
+    toast(
+      "Please choose a nickname."
+    );
+
     return;
   }
 
   const id =
     typeof crypto !== "undefined" &&
     typeof crypto.randomUUID === "function"
+
       ? crypto.randomUUID()
-      : String(Date.now());
+
+      : String(
+          Date.now()
+        );
+
+
+  const levelStats = {};
+
+  for (
+    let i = 1;
+    i <= LEVELS.length;
+    i++
+  ) {
+
+    levelStats[i] = {
+      played: 0,
+      correct: 0,
+      attempts: 0
+    };
+  }
+
 
   const profile = {
+
     id,
+
     name,
-    avatar: selectedAvatar,
+
+    avatar:
+      selectedAvatar,
 
     stars: 0,
+
     sessions: 0,
+
     questions: 0,
+
+    attempts: 0,
+
     correct: 0,
 
     unlockedLevel: 1,
 
     weak: {},
 
-    levelStats: {
-      1: {
-        played: 0,
-        correct: 0
-      },
-
-      2: {
-        played: 0,
-        correct: 0
-      },
-
-      3: {
-        played: 0,
-        correct: 0
-      }
-    }
+    levelStats
   };
 
-  data.profiles.push(profile);
+
+  data.profiles.push(
+    profile
+  );
+
+  currentProfileId =
+    profile.id;
 
   saveData();
-
-  currentProfileId = profile.id;
 
   showLevels();
 }
@@ -296,7 +384,9 @@ function saveProfile() {
    ============================================================ */
 
 function renderProfiles() {
-  const container = $("profiles");
+
+  const container =
+    $("profiles");
 
   container.innerHTML = "";
 
@@ -311,35 +401,54 @@ function renderProfiles() {
     return;
   }
 
-  data.profiles.forEach(profile => {
 
-    const button = document.createElement("button");
+  data.profiles.forEach(
+    profile => {
 
-    button.className = "profile";
+      const button =
+        document.createElement(
+          "button"
+        );
 
-    button.innerHTML = `
-      <div class="avatar">
-        ${profile.avatar}
-      </div>
+      button.type = "button";
 
-      <div class="name">
-        ${escapeHTML(profile.name)}
-      </div>
+      button.className =
+        "profile";
 
-      <div class="stars">
-        ⭐ ${profile.stars}
-      </div>
-    `;
+      button.innerHTML = `
+        <div class="avatar">
+          ${profile.avatar}
+        </div>
 
-    button.addEventListener("click", () => {
+        <div class="name">
+          ${escapeHTML(
+            profile.name
+          )}
+        </div>
 
-      currentProfileId = profile.id;
+        <div class="stars">
+          ⭐ ${profile.stars}
+        </div>
+      `;
 
-      showLevels();
-    });
 
-    container.appendChild(button);
-  });
+      button.addEventListener(
+        "click",
+        () => {
+
+          currentProfileId =
+            profile.id;
+
+          showLevels();
+        }
+      );
+
+
+      container.appendChild(
+        button
+      );
+    }
+  );
 }
 
 
@@ -348,10 +457,14 @@ function renderProfiles() {
    ============================================================ */
 
 function showLevels() {
-  const profile = getCurrentProfile();
+
+  const profile =
+    getCurrentProfile();
 
   if (!profile) {
+
     showHome();
+
     return;
   }
 
@@ -363,26 +476,41 @@ function showLevels() {
   showScreen("levels");
 }
 
+
 function renderLevels() {
 
-  const profile = getCurrentProfile();
+  const profile =
+    getCurrentProfile();
 
-  const container = $("levelList");
+  const container =
+    $("levelList");
 
   container.innerHTML = "";
+
 
   LEVELS.forEach(level => {
 
     const unlocked =
-      profile.unlockedLevel >= level.id;
+      profile.unlockedLevel >=
+      level.id;
 
-    const div = document.createElement("div");
+
+    const div =
+      document.createElement(
+        "div"
+      );
 
     div.className =
       "level " +
-      (unlocked ? "unlocked" : "locked");
+      (
+        unlocked
+          ? "unlocked"
+          : "locked"
+      );
+
 
     div.innerHTML = `
+
       <div class="level-title">
         ${unlocked ? "🔓" : "🔒"}
         ${level.title}
@@ -397,6 +525,7 @@ function renderLevels() {
 
           ? `
             <button
+              type="button"
               class="primary"
               data-level="${level.id}">
               Play
@@ -405,22 +534,54 @@ function renderLevels() {
 
           : `
             <div class="small">
-              Finish the previous level to unlock this one.
+              Finish the previous level
+              to unlock this one.
             </div>
           `
       }
     `;
 
+
     if (unlocked) {
 
-      div.querySelector("button")
-        .addEventListener("click", () => {
-          startGame(level.id);
-        });
+      div
+        .querySelector("button")
+        .addEventListener(
+          "click",
+          () => {
+
+            startGame(
+              level.id
+            );
+          }
+        );
     }
 
-    container.appendChild(div);
+
+    container.appendChild(
+      div
+    );
   });
+}
+
+
+/* ============================================================
+   PAIRS
+   ============================================================ */
+
+function getPairsForLevel(
+  levelId
+) {
+
+  const level =
+    LEVELS.find(
+      level =>
+        level.id === levelId
+    );
+
+  return level
+    ? level.pairs
+    : [];
 }
 
 
@@ -428,127 +589,329 @@ function renderLevels() {
    QUESTION CREATION
    ============================================================ */
 
-function getPairsForLevel(levelId) {
-
-  const level =
-    LEVELS.find(level => level.id === levelId);
-
-  return level ? level.pairs : [];
-}
-
-function makeQuestions(levelId, weakOnly = false) {
+function makeQuestions(
+  levelId,
+  weakOnly = false
+) {
 
   let pairs = [];
 
-  if (weakOnly) {
+  const profile =
+    getCurrentProfile();
 
-    const profile = getCurrentProfile();
 
-    LEVELS.forEach(level => {
+  if (weakOnly && profile) {
 
-      level.pairs.forEach(pair => {
+    LEVELS.forEach(
+      level => {
 
-        const first = pair[0];
-        const second = pair[1];
+        level.pairs.forEach(
+          pair => {
 
-        if (
-          (profile.weak[first] || 0) > 0 ||
-          (profile.weak[second] || 0) > 0
-        ) {
-          pairs.push(pair);
-        }
-      });
-    });
+            const first =
+              pair[0];
+
+            const second =
+              pair[1];
+
+
+            if (
+              getWeakScore(
+                first,
+                second
+              ) > 0
+            ) {
+
+              pairs.push(
+                pair
+              );
+            }
+          }
+        );
+      }
+    );
+
 
     if (!pairs.length) {
+
       weakOnly = false;
     }
   }
 
+
   if (!weakOnly) {
-    pairs = getPairsForLevel(levelId);
+
+    pairs =
+      getPairsForLevel(
+        levelId
+      );
   }
+
 
   const result = [];
 
-  pairs.forEach(pair => {
 
-    /*
-      First direction:
-      BIG -> SMALL
-    */
+  pairs.forEach(
+    pair => {
 
-    result.push({
-      word: pair[0],
-      answer: pair[1],
+      /*
+        BIG → SMALL
+      */
 
-      emoji: pair[2],
-      answerEmoji: pair[3],
+      result.push({
 
-      category: pair[4]
-    });
+        word:
+          pair[0],
 
-    /*
-      Second direction:
-      SMALL -> BIG
-    */
+        answer:
+          pair[1],
 
-    result.push({
-      word: pair[1],
-      answer: pair[0],
+        emoji:
+          pair[2],
 
-      emoji: pair[3],
-      answerEmoji: pair[2],
+        answerEmoji:
+          pair[3],
 
-      category: pair[4]
-    });
-  });
+        category:
+          pair[4]
+      });
 
-  return shuffle(result);
+
+      /*
+        SMALL → BIG
+      */
+
+      result.push({
+
+        word:
+          pair[1],
+
+        answer:
+          pair[0],
+
+        emoji:
+          pair[3],
+
+        answerEmoji:
+          pair[2],
+
+        category:
+          pair[4]
+      });
+    }
+  );
+
+
+  return shuffle(
+    result
+  );
 }
 
-function chooseSessionQuestions(allQuestions) {
 
-  const desired =
-    Number(data.settings.sessionLength) || 5;
+/* ============================================================
+   WEAK WORDS
+   ============================================================ */
 
-  if (allQuestions.length <= desired) {
-    return allQuestions;
+function weakKey(
+  word,
+  answer
+) {
+
+  return (
+    `${word}→${answer}`
+      .toLowerCase()
+  );
+}
+
+
+function getWeakScore(
+  word,
+  answer
+) {
+
+  const profile =
+    getCurrentProfile();
+
+  if (!profile) {
+    return 0;
   }
 
-  const profile = getCurrentProfile();
 
   /*
-    Put words that need practice near the front.
+    New format:
+    word → answer
   */
 
-  const weighted =
-    [...allQuestions].sort((a, b) => {
+  const directionKey =
+    weakKey(
+      word,
+      answer
+    );
 
-      return (
-        (profile.weak[b.word] || 0) -
-        (profile.weak[a.word] || 0)
+
+  if (
+    typeof profile.weak[
+      directionKey
+    ] === "number"
+  ) {
+
+    return profile.weak[
+      directionKey
+    ];
+  }
+
+
+  /*
+    Old format fallback.
+  */
+
+  return Number(
+    profile.weak[word]
+  ) || 0;
+}
+
+
+function increaseWeakScore(
+  word,
+  answer
+) {
+
+  const profile =
+    getCurrentProfile();
+
+  if (!profile) {
+    return;
+  }
+
+  const key =
+    weakKey(
+      word,
+      answer
+    );
+
+  profile.weak[key] =
+    getWeakScore(
+      word,
+      answer
+    ) + 2;
+}
+
+
+function decreaseWeakScore(
+  word,
+  answer
+) {
+
+  const profile =
+    getCurrentProfile();
+
+  if (!profile) {
+    return;
+  }
+
+  const key =
+    weakKey(
+      word,
+      answer
+    );
+
+  profile.weak[key] =
+    Math.max(
+      0,
+      getWeakScore(
+        word,
+        answer
+      ) - 1
+    );
+}
+
+
+/* ============================================================
+   SESSION SELECTION
+   ============================================================ */
+
+function chooseSessionQuestions(
+  allQuestions
+) {
+
+  const desired =
+    Number(
+      data.settings.sessionLength
+    ) || 5;
+
+
+  if (
+    allQuestions.length <=
+    desired
+  ) {
+
+    return shuffle(
+      allQuestions
+    );
+  }
+
+
+  const profile =
+    getCurrentProfile();
+
+
+  const weighted =
+    [...allQuestions]
+      .sort(
+        (a, b) => {
+
+          const bScore =
+            profile
+              ? getWeakScore(
+                  b.word,
+                  b.answer
+                )
+              : 0;
+
+          const aScore =
+            profile
+              ? getWeakScore(
+                  a.word,
+                  a.answer
+                )
+              : 0;
+
+          return bScore - aScore;
+        }
       );
 
-    });
 
   const priorityCount =
     Math.min(
-      Math.ceil(desired / 2),
+      Math.ceil(
+        desired / 2
+      ),
       weighted.length
     );
 
+
   const priority =
-    weighted.slice(0, priorityCount);
+    weighted.slice(
+      0,
+      priorityCount
+    );
+
 
   const remaining =
-    shuffle(weighted.slice(priorityCount));
+    shuffle(
+      weighted.slice(
+        priorityCount
+      )
+    );
+
 
   return shuffle([
     ...priority,
+
     ...remaining.slice(
       0,
-      desired - priority.length
+      desired -
+        priority.length
     )
   ]);
 }
@@ -558,15 +921,38 @@ function chooseSessionQuestions(allQuestions) {
    START GAME
    ============================================================ */
 
-function startGame(levelId, weakOnly = false) {
+function startGame(
+  levelId,
+  weakOnly = false
+) {
 
-  currentLevel = levelId;
+  const profile =
+    getCurrentProfile();
+
+  if (!profile) {
+
+    showHome();
+
+    return;
+  }
+
+
+  currentLevel =
+    levelId;
+
 
   const allQuestions =
-    makeQuestions(levelId, weakOnly);
+    makeQuestions(
+      levelId,
+      weakOnly
+    );
+
 
   questions =
-    chooseSessionQuestions(allQuestions);
+    chooseSessionQuestions(
+      allQuestions
+    );
+
 
   if (!questions.length) {
 
@@ -577,16 +963,22 @@ function startGame(levelId, weakOnly = false) {
     return;
   }
 
+
   questionIndex = 0;
+
   sessionScore = 0;
-  sessionTotal = questions.length;
+
+  sessionTotal =
+    questions.length;
 
   answered = false;
+
 
   $("levelBadge").textContent =
     `Level ${levelId}`;
 
-  $("gameScore").textContent = "0";
+  $("gameScore").textContent =
+    "0";
 
   showScreen("game");
 
@@ -600,79 +992,325 @@ function startGame(levelId, weakOnly = false) {
 
 function showQuestion() {
 
-  clearTimeout(speechTimer);
+  stopSpeech();
 
-  stopSpeaking();
-
-  if (questionIndex >= questions.length) {
+  if (
+    questionIndex >=
+    questions.length
+  ) {
 
     finishGame();
 
     return;
   }
 
+
   currentQuestion =
-    questions[questionIndex];
+    questions[
+      questionIndex
+    ];
 
   answered = false;
 
-  $("message").textContent = "";
 
-  $("nextButton").style.display = "none";
+  $("message").textContent =
+    "";
 
-  const question = currentQuestion;
+  $("nextButton").style.display =
+    "none";
+
+
+  const question =
+    currentQuestion;
+
 
   $("questionEmoji").textContent =
     question.emoji;
 
+
   $("questionWord").textContent =
     question.word.toUpperCase();
+
 
   $("instruction").textContent =
     `Find the opposite of ${
       question.word.toUpperCase()
     }!`;
 
+
   const progress =
-    (questionIndex / questions.length) * 100;
+    (
+      questionIndex /
+      questions.length
+    ) * 100;
+
 
   $("progressBar").style.width =
     `${progress}%`;
 
-  renderChoices(question);
+
+  renderChoices(
+    question
+  );
+
 
   /*
-    Read the question automatically.
+    Give the child a tiny pause
+    before speaking.
   */
 
-  speechTimer = setTimeout(() => {
+  speechTimer =
+    setTimeout(
+      () => {
 
-    speak(question.word);
-
-    /*
-      Then read each answer.
-    */
-
-    speechTimer = setTimeout(() => {
-
-      const labels =
-        [...document.querySelectorAll(
-          ".choice .word"
-        )].map(
-          element => element.textContent
+        playQuestionSpeech(
+          question
         );
 
-      labels.forEach((label, index) => {
+      },
+      450
+    );
+}
 
-        setTimeout(() => {
-          speak(label.toLowerCase());
-        }, index * 850);
 
-      });
+/* ============================================================
+   AUTOMATIC SPEECH
+   ============================================================ */
 
-    }, 1100);
+function playQuestionSpeech(
+  question
+) {
 
-  }, 300);
+  stopSpeech();
+
+
+  const labels =
+    [
+      question.word,
+
+      ...[
+        ...document
+          .querySelectorAll(
+            ".choice .word"
+          )
+      ].map(
+        element =>
+          element.textContent
+      )
+    ];
+
+
+  speakSequence(
+    labels,
+    750
+  );
+}
+
+
+function speakSequence(
+  texts,
+  gap = 750
+) {
+
+  stopSpeech();
+
+  speechQueue =
+    texts.filter(
+      text =>
+        String(text).trim()
+    );
+
+  speechQueueRunning =
+    false;
+
+  runSpeechQueue(
+    gap
+  );
+}
+
+
+function runSpeechQueue(
+  gap
+) {
+
+  if (
+    speechQueueRunning
+  ) {
+    return;
+  }
+
+
+  if (
+    !speechQueue.length
+  ) {
+
+    speechQueueRunning =
+      false;
+
+    return;
+  }
+
+
+  if (
+    !("speechSynthesis" in window)
+  ) {
+
+    speechQueue = [];
+
+    return;
+  }
+
+
+  speechQueueRunning =
+    true;
+
+
+  const text =
+    speechQueue.shift();
+
+
+  const utterance =
+    createUtterance(
+      text
+    );
+
+
+  utterance.onend =
+    () => {
+
+      speechQueueRunning =
+        false;
+
+
+      if (
+        speechQueue.length
+      ) {
+
+        speechTimer =
+          setTimeout(
+            () => {
+
+              runSpeechQueue(
+                gap
+              );
+
+            },
+            gap
+          );
+      }
+    };
+
+
+  utterance.onerror =
+    () => {
+
+      speechQueueRunning =
+        false;
+
+      runSpeechQueue(
+        gap
+      );
+    };
+
+
+  window.speechSynthesis
+    .speak(
+      utterance
+    );
+}
+
+
+function createUtterance(
+  text
+) {
+
+  const utterance =
+    new SpeechSynthesisUtterance(
+      String(text)
+    );
+
+
+  utterance.rate =
+    Number(
+      data.settings.speechRate
+    ) || 0.78;
+
+
+  utterance.pitch =
+    1.15;
+
+  utterance.volume =
+    1;
+
+
+  const voices =
+    window.speechSynthesis
+      .getVoices();
+
+
+  const english =
+    voices.find(
+      voice =>
+        /^en(-|_)/i.test(
+          voice.lang
+        )
+    );
+
+
+  if (english) {
+
+    utterance.voice =
+      english;
+  }
+
+
+  return utterance;
+}
+
+
+function speak(text) {
+
+  if (
+    !("speechSynthesis" in window)
+  ) {
+
+    return;
+  }
+
+
+  stopSpeech();
+
+
+  window.speechSynthesis
+    .speak(
+      createUtterance(
+        text
+      )
+    );
+}
+
+
+function stopSpeech() {
+
+  clearTimeout(
+    speechTimer
+  );
+
+
+  speechQueue = [];
+
+  speechQueueRunning =
+    false;
+
+
+  if (
+    "speechSynthesis" in
+    window
+      ) {
+
+    window.speechSynthesis
+      .cancel();
+  }
 }
 
 
@@ -680,58 +1318,84 @@ function showQuestion() {
    ANSWER CHOICES
    ============================================================ */
 
-function renderChoices(question) {
+function renderChoices(
+  question
+) {
 
-  const options = shuffle([
-    question.answer,
-    ...getDistractors(
+  const options =
+    shuffle([
       question.answer,
-      question.word
-    )
-  ]);
 
-  const container = $("choices");
+      ...getDistractors(
+        question.answer,
+        question.word
+      )
+    ]);
 
-  container.innerHTML = "";
 
-  options.forEach(option => {
+  const container =
+    $("choices");
 
-    const pair =
-      findPairForWord(option);
+  container.innerHTML =
+    "";
 
-    const button =
-      document.createElement("button");
 
-    button.className = "choice";
+  options.forEach(
+    option => {
 
-    button.innerHTML = `
-      <div class="emoji">
-        ${pair.emoji}
-      </div>
-
-      <div class="word">
-        ${escapeHTML(
-          option.toUpperCase()
-        )}
-      </div>
-    `;
-
-    button.addEventListener(
-      "click",
-      () => {
-
-        speak(option);
-
-        answerQuestion(
-          button,
+      const pair =
+        findPairForWord(
           option
         );
-      }
-    );
 
-    container.appendChild(button);
-  });
+
+      const button =
+        document.createElement(
+          "button"
+        );
+
+
+      button.type =
+        "button";
+
+      button.className =
+        "choice";
+
+
+      button.innerHTML = `
+
+        <div class="emoji">
+          ${pair.emoji}
+        </div>
+
+        <div class="word">
+          ${escapeHTML(
+            option.toUpperCase()
+          )}
+        </div>
+
+      `;
+
+
+      button.addEventListener(
+        "click",
+        () => {
+
+          answerQuestion(
+            button,
+            option
+          );
+        }
+      );
+
+
+      container.appendChild(
+        button
+      );
+    }
+  );
 }
+
 
 function getDistractors(
   correctAnswer,
@@ -740,34 +1404,65 @@ function getDistractors(
 
   const words = [];
 
-  LEVELS.forEach(level => {
 
-    level.pairs.forEach(pair => {
+  LEVELS.forEach(
+    level => {
 
-      pair.slice(0, 2).forEach(word => {
+      level.pairs.forEach(
+        pair => {
 
-        if (
-          word !== correctAnswer &&
-          word !== currentWord &&
-          !words.includes(word)
-        ) {
-          words.push(word);
+          pair
+            .slice(0, 2)
+            .forEach(
+              word => {
+
+                if (
+                  word !==
+                    correctAnswer &&
+
+                  word !==
+                    currentWord &&
+
+                  !words.includes(
+                    word
+                  )
+                ) {
+
+                  words.push(
+                    word
+                  );
+                }
+              }
+            );
         }
+      );
+    }
+  );
 
-      });
-    });
-  });
 
-  return shuffle(words).slice(0, 2);
+  return shuffle(
+    words
+  ).slice(0, 2);
 }
 
-function findPairForWord(word) {
 
-  for (const level of LEVELS) {
+function findPairForWord(
+  word
+) {
 
-    for (const pair of level.pairs) {
+  for (
+    const level
+    of LEVELS
+  ) {
 
-      if (pair[0] === word) {
+    for (
+      const pair
+      of level.pairs
+    ) {
+
+      if (
+        pair[0] === word
+      ) {
 
         return {
           word,
@@ -775,7 +1470,10 @@ function findPairForWord(word) {
         };
       }
 
-      if (pair[1] === word) {
+
+      if (
+        pair[1] === word
+      ) {
 
         return {
           word,
@@ -784,6 +1482,7 @@ function findPairForWord(word) {
       }
     }
   }
+
 
   return {
     word,
@@ -801,49 +1500,119 @@ function answerQuestion(
   selected
 ) {
 
-  if (answered) return;
+  if (answered) {
+    return;
+  }
+
 
   const profile =
     getCurrentProfile();
 
+
   const question =
     currentQuestion;
 
-  if (selected === question.answer) {
 
-    answered = true;
+  if (!profile || !question) {
+    return;
+  }
+
+
+  /*
+    Every tap is an attempt.
+  */
+
+  profile.attempts++;
+
+
+  if (
+    !profile.levelStats[
+      currentLevel
+    ]
+  ) {
+
+    profile.levelStats[
+      currentLevel
+    ] = {
+      played: 0,
+      correct: 0,
+      attempts: 0
+    };
+  }
+
+
+  profile.levelStats[
+    currentLevel
+  ].attempts++;
+
+
+  /*
+    Correct answer.
+  */
+
+  if (
+    selected ===
+    question.answer
+  ) {
+
+    answered =
+      true;
+
 
     sessionScore++;
 
-    profile.correct++;
+
+    /*
+      One completed question.
+    */
 
     profile.questions++;
 
-    profile.levelStats[currentLevel].played++;
 
-    profile.levelStats[currentLevel].correct++;
+    profile.correct++;
 
-    /*
-      Success reduces the need for repetition.
-    */
 
-    if (profile.weak[question.word]) {
+    profile.levelStats[
+      currentLevel
+    ].played++;
 
-      profile.weak[question.word] =
-        Math.max(
-          0,
-          profile.weak[question.word] - 1
-        );
-    }
 
-    button.classList.add("correct");
+    profile.levelStats[
+      currentLevel
+    ].correct++;
+
+
+    decreaseWeakScore(
+      question.word,
+      question.answer
+    );
+
+
+    button.classList.add(
+      "correct"
+    );
+
+
+    document
+      .querySelectorAll(
+        ".choice"
+      )
+      .forEach(
+        choice => {
+          choice.disabled =
+            true;
+        }
+      );
+
 
     const praise =
       PRAISE[
         Math.floor(
-          Math.random() * PRAISE.length
+          Math.random() *
+          PRAISE.length
         )
       ];
+
 
     const text =
       `${praise} ${
@@ -852,52 +1621,75 @@ function answerQuestion(
         question.answer
       } are opposites!`;
 
-    $("message").textContent = text;
 
-    speak(text);
+    $("message").textContent =
+      text;
+
 
     $("gameScore").textContent =
       sessionScore;
 
-    document
-      .querySelectorAll(".choice")
-      .forEach(choice => {
-        choice.disabled = true;
-      });
-
-    $("nextButton").style.display =
-      "block";
-
-    saveData();
-
-  } else {
-
-    button.classList.add("wrong");
-
-    profile.questions++;
 
     /*
-      Missed words receive extra practice.
+      Speak the feedback once.
     */
 
-    profile.weak[question.word] =
-      (profile.weak[question.word] || 0) + 2;
+    speak(
+      text
+    );
+
+
+    $("nextButton")
+      .style.display =
+      "block";
+
 
     saveData();
 
-    $("message").textContent =
-      "Almost! Try another one. 🐾";
 
-    speak(
-      "Almost. Try another one."
-    );
-
-    setTimeout(() => {
-
-      button.classList.remove("wrong");
-
-    }, 500);
+    return;
   }
+
+
+  /*
+    Wrong answer:
+    Do NOT mark the question complete.
+    The child gets another chance.
+  */
+
+  button.classList.add(
+    "wrong"
+  );
+
+
+  increaseWeakScore(
+    question.word,
+    question.answer
+  );
+
+
+  $("message").textContent =
+    "Almost! Try another one. 🐾";
+
+
+  speak(
+    "Almost. Try another one."
+  );
+
+
+  saveData();
+
+
+  setTimeout(
+    () => {
+
+      button.classList.remove(
+        "wrong"
+      );
+
+    },
+    500
+  );
 }
 
 
@@ -910,23 +1702,50 @@ function finishGame() {
   const profile =
     getCurrentProfile();
 
+
+  if (!profile) {
+
+    showHome();
+
+    return;
+  }
+
+
   profile.sessions++;
 
-  profile.stars += sessionScore;
+
+  profile.stars +=
+    sessionScore;
+
 
   const percentage =
-    sessionScore / sessionTotal;
+    sessionTotal > 0
 
-  let unlocked = false;
+      ? sessionScore /
+        sessionTotal
+
+      : 0;
+
+
+  let unlocked =
+    false;
+
 
   /*
-    Need 70% or better to unlock next level.
+    Need 70% or better
+    to unlock the next level.
   */
 
   if (
+
     percentage >= 0.7 &&
-    currentLevel === profile.unlockedLevel &&
-    profile.unlockedLevel < LEVELS.length
+
+    currentLevel ===
+      profile.unlockedLevel &&
+
+    profile.unlockedLevel <
+      LEVELS.length
+
   ) {
 
     profile.unlockedLevel++;
@@ -934,13 +1753,17 @@ function finishGame() {
     unlocked = true;
   }
 
+
   saveData();
+
 
   $("progressBar").style.width =
     "100%";
 
+
   $("finalScore").textContent =
     `${sessionScore} / ${sessionTotal}`;
+
 
   if (unlocked) {
 
@@ -952,19 +1775,32 @@ function finishGame() {
   } else {
 
     $("resultText").textContent =
-      sessionScore === sessionTotal
+
+      sessionScore ===
+        sessionTotal
+
         ? "Perfect! Amazing animal explorer!"
+
         : "Wonderful practice! Let's keep learning.";
   }
 
-  $("resultAnimal").textContent =
-    sessionScore === sessionTotal
-      ? "🏆🦁🎉"
-      : "⭐🐼⭐";
 
-  showScreen("result");
+  $("resultAnimal").textContent =
+    sessionScore ===
+      sessionTotal
+
+      ? "🏆"
+
+      : "🦁";
+
+
+  showScreen(
+    "result"
+  );
+
 
   speak(
+
     unlocked
 
       ? `Great job! You unlocked level ${
@@ -985,14 +1821,69 @@ function practiceWeak() {
   const profile =
     getCurrentProfile();
 
-  const weakWords =
-    Object.entries(profile.weak)
-      .filter(
-        ([, count]) => count > 0
-      )
-      .map(([word]) => word);
 
-  if (!weakWords.length) {
+  if (!profile) {
+    return;
+  }
+
+
+  const weakQuestions = [];
+
+
+  LEVELS.forEach(
+    level => {
+
+      level.pairs.forEach(
+        pair => {
+
+          const first =
+            pair[0];
+
+          const second =
+            pair[1];
+
+
+          if (
+            getWeakScore(
+              first,
+              second
+            ) > 0
+          ) {
+
+            weakQuestions.push({
+
+              word: first,
+              answer: second,
+              emoji: pair[2],
+              answerEmoji: pair[3],
+              category: pair[4]
+            });
+          }
+
+
+          if (
+            getWeakScore(
+              second,
+              first
+            ) > 0
+          ) {
+
+            weakQuestions.push({
+
+              word: second,
+              answer: first,
+              emoji: pair[3],
+              answerEmoji: pair[2],
+              category: pair[4]
+            });
+          }
+        }
+      );
+    }
+  );
+
+
+  if (!weakQuestions.length) {
 
     toast(
       "No tricky words yet. Great job!"
@@ -1001,46 +1892,33 @@ function practiceWeak() {
     return;
   }
 
-  const all = [];
-
-  LEVELS.forEach(level => {
-
-    level.pairs.forEach(pair => {
-
-      if (
-        weakWords.includes(pair[0]) ||
-        weakWords.includes(pair[1])
-      ) {
-
-        all.push({
-          word: pair[0],
-          answer: pair[1],
-          emoji: pair[2],
-          answerEmoji: pair[3],
-          category: pair[4]
-        });
-
-        all.push({
-          word: pair[1],
-          answer: pair[0],
-          emoji: pair[3],
-          answerEmoji: pair[2],
-          category: pair[4]
-        });
-      }
-    });
-  });
 
   questions =
-    chooseSessionQuestions(all);
+    chooseSessionQuestions(
+      weakQuestions
+    );
+
 
   questionIndex = 0;
+
   sessionScore = 0;
-  sessionTotal = questions.length;
 
-  currentLevel = 1;
+  sessionTotal =
+    questions.length;
 
-  showScreen("game");
+
+  /*
+    This is practice, not a normal level.
+  */
+
+  currentLevel =
+    1;
+
+
+  showScreen(
+    "game"
+  );
+
 
   showQuestion();
 }
@@ -1059,13 +1937,18 @@ function openParent() {
     return;
   }
 
+
   showPinPrompt();
 }
+
 
 function showSetPin() {
 
   openModal(`
-    <h2>👨‍👩‍👧 Parent PIN</h2>
+
+    <h2>
+      👨‍👩‍👧 Parent PIN
+    </h2>
 
     <p>
       Create a simple 4-digit PIN
@@ -1094,38 +1977,55 @@ function showSetPin() {
       </button>
 
     </div>
+
   `);
 
-  $("savePinBtn").onclick = () => {
 
-    const pin =
-      $("newPin").value;
+  $("savePinBtn").onclick =
+    () => {
 
-    if (!/^\d{4}$/.test(pin)) {
+      const pin =
+        $("newPin").value;
 
-      toast(
-        "Please enter 4 numbers."
-      );
 
-      return;
-    }
+      if (
+        !/^\d{4}$/.test(
+          pin
+        )
+      ) {
 
-    data.parentPin = pin;
+        toast(
+          "Please enter 4 numbers."
+        );
 
-    saveData();
+        return;
+      }
 
-    closeModal();
 
-    showParent();
-  };
+      data.parentPin =
+        pin;
+
+
+      saveData();
+
+      closeModal();
+
+      showParent();
+    };
 }
+
 
 function showPinPrompt() {
 
-  pinBuffer = "";
+  pinBuffer =
+    "";
+
 
   openModal(`
-    <h2>🔐 Parent Area</h2>
+
+    <h2>
+      🔐 Parent Area
+    </h2>
 
     <p>
       Enter your 4-digit PIN.
@@ -1140,91 +2040,161 @@ function showPinPrompt() {
     <div class="pin-pad">
 
       ${
-        [1,2,3,4,5,6,7,8,9,"⌫",0,"✓"]
-          .map(number => `
+        [
+          1,2,3,
+          4,5,6,
+          7,8,9,
+          "⌫",0,"✓"
+        ]
+
+        .map(
+          number => `
+
             <button
+              type="button"
               onclick="pinPress('${number}')">
               ${number}
             </button>
-          `)
-          .join("")
+
+          `
+        )
+
+        .join("")
       }
 
     </div>
 
-    <div class="modal-actions">
-
-      <button
-        class="secondary"
-        onclick="closeModal()">
-        Cancel
-      </button>
-
-    </div>
   `);
 }
 
-window.pinPress = function(value) {
 
-  if (value === "⌫") {
+function pinPress(
+  value
+) {
+
+  if (
+    value ===
+    "⌫"
+  ) {
 
     pinBuffer =
-      pinBuffer.slice(0, -1);
+      pinBuffer.slice(
+        0,
+        -1
+      );
 
-  } else if (value === "✓") {
+    updatePinDots();
+
+    return;
+  }
+
+
+  if (
+    value ===
+    "✓"
+  ) {
 
     checkPin();
 
     return;
-
-  } else if (pinBuffer.length < 4) {
-
-    pinBuffer += value;
   }
 
-  $("pinDots").textContent =
-    pinBuffer
-      .padEnd(4, "○")
-      .split("")
+
+  if (
+    pinBuffer.length >= 4
+  ) {
+
+    return;
+  }
+
+
+  pinBuffer +=
+    String(value);
+
+
+  updatePinDots();
+
+
+  if (
+    pinBuffer.length === 4
+  ) {
+
+    setTimeout(
+      checkPin,
+      150
+    );
+  }
+}
+
+
+window.pinPress =
+  pinPress;
+
+
+function updatePinDots() {
+
+  const dots =
+    $("pinDots");
+
+
+  if (!dots) {
+    return;
+  }
+
+
+  dots.textContent =
+    [0,1,2,3]
       .map(
-        (_, index) =>
-          index < pinBuffer.length
+        index =>
+          index <
+          pinBuffer.length
             ? "●"
             : "○"
       )
       .join(" ");
-};
+}
+
 
 function checkPin() {
 
-  if (pinBuffer === data.parentPin) {
+  if (
+    pinBuffer ===
+    data.parentPin
+  ) {
 
     closeModal();
 
     showParent();
 
-  } else {
-
-    pinBuffer = "";
-
-    $("pinDots").textContent =
-      "○ ○ ○ ○";
-
-    toast(
-      "That PIN did not work."
-    );
+    return;
   }
+
+
+  pinBuffer =
+    "";
+
+  updatePinDots();
+
+  toast(
+    "That PIN is not correct."
+  );
 }
+
+
+/* ============================================================
+   PARENT DASHBOARD
+   ============================================================ */
 
 function showParent() {
 
   const profile =
     getCurrentProfile();
 
+
   if (!profile) {
 
     toast(
-      "Choose a child profile first."
+      "Choose a player first."
     );
 
     showHome();
@@ -1232,148 +2202,248 @@ function showParent() {
     return;
   }
 
-  $("parentContent").innerHTML = `
 
-    <div class="stat-grid">
+  const totalQuestions =
+    profile.questions;
 
-      <div class="stat">
-        <div class="number">
-          ${profile.stars}
+
+  const accuracy =
+    totalQuestions > 0
+
+      ? Math.round(
+          (
+            profile.correct /
+            totalQuestions
+          ) * 100
+        )
+
+      : 0;
+
+
+  $("parentContent")
+    .innerHTML = `
+
+      <div class="stat-grid">
+
+        <div class="stat">
+
+          <div class="number">
+            ⭐ ${profile.stars}
+          </div>
+
+          <div class="label">
+            Stars
+          </div>
+
         </div>
-        <div class="label">
-          Stars
+
+
+        <div class="stat">
+
+          <div class="number">
+            ${profile.sessions}
+          </div>
+
+          <div class="label">
+            Games
+          </div>
+
         </div>
-      </div>
 
-      <div class="stat">
-        <div class="number">
-          ${profile.sessions}
+
+        <div class="stat">
+
+          <div class="number">
+            ${profile.questions}
+          </div>
+
+          <div class="label">
+            Questions
+          </div>
+
         </div>
-        <div class="label">
-          Sessions
+
+
+        <div class="stat">
+
+          <div class="number">
+            ${accuracy}%
+          </div>
+
+          <div class="label">
+            Accuracy
+          </div>
+
         </div>
-      </div>
-
-      <div class="stat">
-        <div class="number">
-          ${profile.questions}
-        </div>
-        <div class="label">
-          Questions
-        </div>
-      </div>
-
-      <div class="stat">
-        <div class="number">
-          ${profile.correct}
-        </div>
-        <div class="label">
-          Correct
-        </div>
-      </div>
-
-    </div>
-
-    <h3>
-      ${profile.avatar}
-      ${escapeHTML(profile.name)}
-    </h3>
-
-    <div class="level-list">
-
-      ${
-        LEVELS.map(level => {
-
-          const stats =
-            profile.levelStats[level.id];
-
-          return `
-            <div class="level">
-
-              <div class="level-title">
-                Level ${level.id}:
-                ${stats.played} questions
-              </div>
-
-              <div class="level-desc">
-                ${stats.correct} correct
-              </div>
-
-            </div>
-          `;
-
-        }).join("")
-      }
-
-    </div>
-
-    <h3>⚙️ Settings</h3>
-
-    <div class="settings">
-
-      <div class="setting-row">
-
-        <label for="sessionLength">
-          Questions per game
-        </label>
-
-        <select id="sessionLength">
-
-          <option value="3">
-            3 — Tiny game
-          </option>
-
-          <option value="5">
-            5 — Short game
-          </option>
-
-          <option value="10">
-            10 — Long game
-          </option>
-
-        </select>
 
       </div>
 
-      <div class="setting-row">
 
-        <label>
+      <h3>
+        ${profile.avatar}
+        ${escapeHTML(
+          profile.name
+        )}
+      </h3>
 
-          <input
-            id="reduceMotion"
-            type="checkbox">
 
-          Reduce animations
+      <div class="level-list">
 
-        </label>
+        ${
+          LEVELS.map(
+            level => {
+
+              const stats =
+                profile.levelStats[
+                  level.id
+                ] || {
+                  played: 0,
+                  correct: 0,
+                  attempts: 0
+                };
+
+
+              const levelAccuracy =
+                stats.played > 0
+
+                  ? Math.round(
+                      (
+                        stats.correct /
+                        stats.played
+                      ) * 100
+                    )
+
+                  : 0;
+
+
+              return `
+
+                <div class="level">
+
+                  <div class="level-title">
+
+                    Level ${level.id}
+
+                  </div>
+
+                  <div class="level-desc">
+
+                    ${stats.played}
+                    completed questions
+
+                    ·
+
+                    ${stats.correct}
+                    correct
+
+                    ·
+
+                    ${levelAccuracy}%
+                    accuracy
+
+                  </div>
+
+                </div>
+
+              `;
+            }
+          ).join("")
+        }
 
       </div>
 
-    </div>
 
-    <h3 style="margin-top:20px">
-      💚 Words needing practice
-    </h3>
+      <h3>
+        ⚙️ Settings
+      </h3>
 
-    <div>
-      ${renderWeakWords(profile)}
-    </div>
-  `;
+
+      <div class="settings">
+
+        <div class="setting-row">
+
+          <label
+            for="sessionLength">
+
+            Questions per game
+
+          </label>
+
+
+          <select
+            id="sessionLength">
+
+            <option value="3">
+              3 — Tiny game
+            </option>
+
+            <option value="5">
+              5 — Short game
+            </option>
+
+            <option value="10">
+              10 — Long game
+            </option>
+
+          </select>
+
+        </div>
+
+
+        <div class="setting-row">
+
+          <label>
+
+            <input
+              id="reduceMotion"
+              type="checkbox">
+
+            Reduce animations
+
+          </label>
+
+        </div>
+
+      </div>
+
+
+      <h3 style="margin-top:20px">
+
+        💚 Words needing practice
+
+      </h3>
+
+
+      <div>
+
+        ${renderWeakWords(
+          profile
+        )}
+
+      </div>
+
+    `;
+
 
   $("sessionLength").value =
     data.settings.sessionLength;
 
+
   $("reduceMotion").checked =
     data.settings.reduceMotion;
+
 
   $("sessionLength").onchange =
     event => {
 
       data.settings.sessionLength =
-        Number(event.target.value);
+        Number(
+          event.target.value
+        );
 
       saveData();
     };
+
 
   $("reduceMotion").onchange =
     event => {
@@ -1381,33 +2451,47 @@ function showParent() {
       data.settings.reduceMotion =
         event.target.checked;
 
+
       document.body.classList.toggle(
         "reduce-motion",
         event.target.checked
       );
 
+
       saveData();
     };
 
-  showScreen("parent");
+
+  showScreen(
+    "parent"
+  );
 }
 
-function renderWeakWords(profile) {
 
-  const words =
-    Object.entries(profile.weak)
+function renderWeakWords(
+  profile
+) {
 
+  const entries =
+    Object.entries(
+      profile.weak
+    )
       .filter(
-        ([, count]) => count > 0
+        ([, count]) =>
+          Number(count) > 0
       )
-
       .sort(
-        (a,b) => b[1] - a[1]
+        (a, b) =>
+          Number(b[1]) -
+          Number(a[1])
       )
+      .slice(
+        0,
+        12
+      );
 
-      .slice(0,12);
 
-  if (!words.length) {
+  if (!entries.length) {
 
     return `
       <p>
@@ -1416,29 +2500,36 @@ function renderWeakWords(profile) {
     `;
   }
 
+
   return `
+
     <div class="level-list">
 
       ${
-        words.map(
-          ([word,count]) => `
+        entries.map(
+          ([key, count]) => `
+
             <div class="level">
 
               <strong>
-                ${escapeHTML(word)}
+                ${escapeHTML(
+                  key
+                )}
               </strong>
 
               <span class="small">
                 needs ${count}
-                more practice turn(s)
+                more practice
               </span>
 
             </div>
+
           `
         ).join("")
       }
 
     </div>
+
   `;
 }
 
@@ -1447,101 +2538,97 @@ function renderWeakWords(profile) {
    MODALS
    ============================================================ */
 
-function openModal(html) {
+function openModal(
+  html
+) {
 
-  $("modalBox").innerHTML = html;
+  $("modalBox")
+    .innerHTML =
+    html;
+
 
   $("modal")
     .classList
-    .remove("hidden");
+    .remove(
+      "hidden"
+    );
 }
+
 
 function closeModal() {
 
   $("modal")
     .classList
-    .add("hidden");
-}
-
-window.closeModal = closeModal;
-
-
-/* ============================================================
-   SPEECH
-   ============================================================ */
-
-function speak(text) {
-
-  if (!("speechSynthesis" in window)) {
-    return;
-  }
-
-  stopSpeaking();
-
-  const utterance =
-    new SpeechSynthesisUtterance(text);
-
-  utterance.rate =
-    Number(data.settings.speechRate) || 0.78;
-
-  utterance.pitch = 1.15;
-  utterance.volume = 1;
-
-  const voices =
-    window.speechSynthesis.getVoices();
-
-  const english =
-    voices.find(
-      voice =>
-        /^en(-|_)/i.test(
-          voice.lang
-        )
+    .add(
+      "hidden"
     );
 
-  if (english) {
-    utterance.voice = english;
-  }
-
-  window.speechSynthesis.speak(
-    utterance
-  );
+  stopSpeech();
 }
 
-function stopSpeaking() {
 
-  if ("speechSynthesis" in window) {
-    window.speechSynthesis.cancel();
-  }
-
-  clearTimeout(speechTimer);
-}
+window.closeModal =
+  closeModal;
 
 
 /* ============================================================
    NAVIGATION
    ============================================================ */
 
-function showScreen(name) {
+function showScreen(
+  name
+) {
 
-  Object.values(screens)
-    .forEach(screen =>
-      screen.classList.add("hidden")
-    );
+  Object.values(
+    screens
+  ).forEach(
+    screen => {
 
-  screens[name]
-    .classList
-    .remove("hidden");
+      screen.classList.add(
+        "hidden"
+      );
+    }
+  );
 
-  window.scrollTo(0, 0);
+
+  if (
+    screens[name]
+  ) {
+
+    screens[name]
+      .classList
+      .remove(
+        "hidden"
+      );
+  }
+
+
+  window.scrollTo(
+    0,
+    0
+  );
 }
+
 
 function showHome() {
 
-  currentProfileId = null;
+  stopSpeech();
+
+  currentProfileId =
+    null;
+
+
+  questions = [];
+
+  currentQuestion =
+    null;
+
 
   renderProfiles();
 
-  showScreen("home");
+  showScreen(
+    "home"
+  );
 }
 
 
@@ -1552,48 +2639,70 @@ function showHome() {
 function resetProgress() {
 
   openModal(`
-    <h2>Reset progress?</h2>
+
+    <h2>
+      Reset progress?
+    </h2>
 
     <p>
       This removes all child profiles
       and saved progress from this device.
     </p>
 
+
     <div class="modal-actions">
 
       <button
         class="secondary"
         onclick="closeModal()">
+
         Cancel
+
       </button>
+
 
       <button
         class="primary danger"
         id="confirmReset">
+
         Reset everything
+
       </button>
 
     </div>
+
   `);
 
-  $("confirmReset").onclick = () => {
 
-    localStorage.removeItem(
-      STORAGE_KEY
-    );
+  $("confirmReset").onclick =
+    () => {
 
-    data = defaultData();
+      localStorage.removeItem(
+        STORAGE_KEY
+      );
 
-    currentProfileId = null;
+      localStorage.removeItem(
+        "animalOpposites_v3"
+      );
 
-    closeModal();
 
-    showHome();
+      data =
+        defaultData();
 
-    toast(
-      "Progress reset."
-    );
-  };
+
+      currentProfileId =
+        null;
+
+
+      closeModal();
+
+      showHome();
+
+
+      toast(
+        "Progress reset."
+      );
+    };
 }
 
 
@@ -1601,28 +2710,39 @@ function resetProgress() {
    TOAST
    ============================================================ */
 
-let toastTimer;
+function toast(
+  text
+) {
 
-function toast(text) {
+  const element =
+    $("toast");
 
-  const element = $("toast");
 
-  element.textContent = text;
+  element.textContent =
+    text;
+
 
   element.classList.remove(
     "hidden"
   );
 
-  clearTimeout(toastTimer);
+
+  clearTimeout(
+    toastTimer
+  );
+
 
   toastTimer =
-    setTimeout(() => {
+    setTimeout(
+      () => {
 
-      element.classList.add(
-        "hidden"
-      );
+        element.classList.add(
+          "hidden"
+        );
 
-    }, 2200);
+      },
+      2200
+    );
 }
 
 
@@ -1630,21 +2750,79 @@ function toast(text) {
    HELPERS
    ============================================================ */
 
-function shuffle(array) {
+function shuffle(
+  array
+) {
 
-  return [...array].sort(
-    () => Math.random() - 0.5
-  );
+  /*
+    Fisher-Yates shuffle.
+    Better than sort(() => Math.random() - 0.5).
+  */
+
+  const result =
+    [...array];
+
+
+  for (
+    let i =
+      result.length - 1;
+
+    i > 0;
+
+    i--
+  ) {
+
+    const j =
+      Math.floor(
+        Math.random() *
+        (i + 1)
+      );
+
+
+    [
+      result[i],
+      result[j]
+    ] = [
+      result[j],
+      result[i]
+    ];
+  }
+
+
+  return result;
 }
 
-function escapeHTML(value) {
+
+function escapeHTML(
+  value
+) {
 
   return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+
+    .replaceAll(
+      "&",
+      "&amp;"
+    )
+
+    .replaceAll(
+      "<",
+      "&lt;"
+    )
+
+    .replaceAll(
+      ">",
+      "&gt;"
+    )
+
+    .replaceAll(
+      '"',
+      "&quot;"
+    )
+
+    .replaceAll(
+      "'",
+      "&#039;"
+    );
 }
 
 
@@ -1652,79 +2830,123 @@ function escapeHTML(value) {
    EVENT LISTENERS
    ============================================================ */
 
-$("homeBtn").addEventListener(
-  "click",
-  showHome
-);
+$("homeBtn")
+  .addEventListener(
+    "click",
+    showHome
+  );
 
-$("addProfile").addEventListener(
-  "click",
-  openCreate
-);
 
-$("cancelCreate").addEventListener(
-  "click",
-  showHome
-);
+$("addProfile")
+  .addEventListener(
+    "click",
+    openCreate
+  );
 
-$("saveProfile").addEventListener(
-  "click",
-  saveProfile
-);
 
-$("parentHome").addEventListener(
-  "click",
-  showHome
-);
+$("cancelCreate")
+  .addEventListener(
+    "click",
+    showHome
+  );
 
-$("parentBtn").addEventListener(
-  "click",
-  openParent
-);
 
-$("practiceWeak").addEventListener(
-  "click",
-  practiceWeak
-);
+$("saveProfile")
+  .addEventListener(
+    "click",
+    saveProfile
+  );
 
-$("nextButton").addEventListener(
-  "click",
-  () => {
 
-    questionIndex++;
+/*
+  IMPORTANT:
+  There is intentionally NO backHome
+  listener here.
 
-    showQuestion();
-  }
-);
+  Your current index.html does not
+  contain an element with id="backHome".
+*/
 
-$("hearQuestion").addEventListener(
-  "click",
-  () => {
 
-    if (currentQuestion) {
-      speak(
-        currentQuestion.word
+$("parentHome")
+  .addEventListener(
+    "click",
+    showHome
+  );
+
+
+$("parentBtn")
+  .addEventListener(
+    "click",
+    openParent
+  );
+
+
+$("practiceWeak")
+  .addEventListener(
+    "click",
+    practiceWeak
+  );
+
+
+$("nextButton")
+  .addEventListener(
+    "click",
+    () => {
+
+      if (!answered) {
+        return;
+      }
+
+
+      questionIndex++;
+
+      showQuestion();
+    }
+  );
+
+
+$("hearQuestion")
+  .addEventListener(
+    "click",
+    () => {
+
+      if (
+        currentQuestion
+      ) {
+
+        speak(
+          currentQuestion.word
+        );
+      }
+    }
+  );
+
+
+$("playAgain")
+  .addEventListener(
+    "click",
+    () => {
+
+      startGame(
+        currentLevel
       );
     }
-  }
-);
+  );
 
-$("playAgain").addEventListener(
-  "click",
-  () => {
-    startGame(currentLevel);
-  }
-);
 
-$("chooseLevel").addEventListener(
-  "click",
-  showLevels
-);
+$("chooseLevel")
+  .addEventListener(
+    "click",
+    showLevels
+  );
 
-$("resetProgress").addEventListener(
-  "click",
-  resetProgress
-);
+
+$("resetProgress")
+  .addEventListener(
+    "click",
+    resetProgress
+  );
 
 
 /* ============================================================
@@ -1735,25 +2957,36 @@ function init() {
 
   document.body.classList.toggle(
     "reduce-motion",
-    data.settings.reduceMotion
+    Boolean(
+      data.settings.reduceMotion
+    )
   );
+
 
   renderProfiles();
 
+
   /*
-    Browser voices can load asynchronously.
+    Browser voices often load later.
   */
 
-  if ("speechSynthesis" in window) {
+  if (
+    "speechSynthesis" in window
+  ) {
 
-    window.speechSynthesis.getVoices();
+    window.speechSynthesis
+      .getVoices();
 
-    window.speechSynthesis.onvoiceschanged =
+
+    window.speechSynthesis
+      .onvoiceschanged =
       () => {
-        window.speechSynthesis.getVoices();
+
+        window.speechSynthesis
+          .getVoices();
       };
   }
 }
 
+
 init();
-```
