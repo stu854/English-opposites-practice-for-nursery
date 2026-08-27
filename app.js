@@ -1,6 +1,84 @@
 /* ============================================================
    ANIMAL OPPOSITES — UPDATED APP LOGIC
    ============================================================ */
+const LEVELS = [
+  {
+    id: 1,
+    title: "Level 1 — Little Learner",
+    description: "Easy opposites you can see and feel.",
+    pairs: [
+      ["big", "small", "🐘", "🐭", "Size"],
+      ["hot", "cold", "☀️", "🧊", "Temperature"],
+      ["fast", "slow", "🐆", "🐢", "Speed"],
+      ["happy", "sad", "😊", "😢", "Feelings"],
+      ["up", "down", "🎈", "🪨", "Position"],
+      ["in", "out", "🏠", "🌳", "Position"],
+      ["open", "closed", "🚪", "🔒", "Everyday"],
+      ["on", "off", "💡", "🌑", "Everyday"],
+      ["day", "night", "☀️", "🌙", "Time"],
+      ["loud", "quiet", "🥁", "🤫", "Sound"]
+    ]
+  },
+
+  {
+    id: 2,
+    title: "Level 2 — Animal Explorer",
+    description: "Everyday opposites.",
+    pairs: [
+      ["tall", "short", "🦒", "🐛", "Size"],
+      ["light", "dark", "☀️", "🌑", "Light"],
+      ["old", "young", "👴", "👶", "Age"],
+      ["new", "old", "🆕", "🧸", "Age"],
+      ["good", "bad", "👍", "👎", "Choices"],
+      ["clean", "dirty", "🧼", "🟤", "Everyday"],
+      ["full", "empty", "🥛", "🫗", "Everyday"],
+      ["wet", "dry", "💦", "☀️", "Everyday"],
+      ["hard", "soft", "🪨", "🧸", "Touch"],
+      ["heavy", "light", "🐘", "🪶", "Weight"],
+      ["near", "far", "🏠", "🌙", "Distance"],
+      ["high", "low", "✈️", "🐜", "Position"],
+      ["inside", "outside", "🏠", "🌳", "Position"],
+      ["front", "back", "🚗", "🚙", "Position"],
+      ["left", "right", "👈", "👉", "Direction"],
+      ["before", "after", "🌅", "🌙", "Time"],
+      ["first", "last", "🥇", "🏃", "Order"],
+      ["early", "late", "🌅", "🌙", "Time"],
+      ["awake", "asleep", "👀", "😴", "State"],
+      ["push", "pull", "🛒", "🚪", "Action"],
+      ["give", "take", "🎁", "🤲", "Action"],
+      ["come", "go", "🏠", "🚶", "Action"],
+      ["start", "stop", "🏃", "🛑", "Action"]
+    ]
+  },
+
+  {
+    id: 3,
+    title: "Level 3 — Super Explorer",
+    description: "Trickier words and ideas.",
+    pairs: [
+      ["laugh", "cry", "😂", "😭", "Feelings"],
+      ["love", "hate", "❤️", "😖", "Feelings"],
+      ["true", "false", "✅", "❌", "Ideas"],
+      ["same", "different", "👕", "👗", "Ideas"],
+      ["easy", "difficult", "🙂", "🧩", "Difficulty"],
+      ["kind", "mean", "❤️", "😠", "Choices"],
+      ["brave", "scared", "🦁", "😨", "Feelings"],
+      ["safe", "dangerous", "🪖", "🔥", "Safety"],
+      ["pretty", "ugly", "🌸", "🗑️", "Appearance"],
+      ["thick", "thin", "📚", "📄", "Size"],
+      ["wide", "narrow", "🛣️", "🚶", "Size"],
+      ["long", "short", "🦒", "🐛", "Size"],
+      ["deep", "shallow", "🌊", "🛁", "Depth"],
+      ["smooth", "rough", "🪞", "🪨", "Touch"],
+      ["sweet", "sour", "🍬", "🍋", "Taste"],
+      ["strong", "weak", "💪", "🐜", "Strength"],
+      ["many", "few", "🐟🐟🐟", "🐟", "Amount"],
+      ["more", "less", "🍪🍪🍪", "🍪", "Amount"],
+      ["all", "none", "👧👦👶", "⭕", "Amount"],
+      ["yes", "no", "👍", "👎", "Choices"]
+    ]
+  }
+];
 
 const AVATARS = [
   "🐼", "🐨", "🦊", "🐸",
